@@ -234,6 +234,12 @@ export type PushTokenEvent = {
    * The push token for the live activity.
    */
   pushToken: string;
+  /**
+   * The content-state (`props`) of the live activity, when available.
+   * Useful for correlating the token with an activity that was started remotely via
+   * push-to-start, where no JS `LiveActivity` handle exists to associate the token with.
+   */
+  props?: Record<string, any>;
 };
 
 /**
@@ -265,6 +271,12 @@ export type ExpoWidgetsEvents = {
    * @param event Token event details.
    */
   onExpoWidgetsPushToStartTokenReceived: (event: PushToStartTokenEvent) => void;
+  /**
+   * Function that is invoked when a push token is received for any live activity,
+   * including activities started remotely via push-to-start.
+   * @param event Token event details.
+   */
+  onExpoWidgetsTokenReceived: (event: PushTokenEvent) => void;
 };
 
 export type LiveActivityEvents = {

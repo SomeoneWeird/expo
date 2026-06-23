@@ -9,8 +9,17 @@ let onPushToStartTokenReceived = "onExpoWidgetsPushToStartTokenReceived"
 let onTokenReceived = "onExpoWidgetsTokenReceived"
 let onUserInteractionNotification = Notification.Name(onUserInteraction)
 
+/// Parses a live activity content-state `props` JSON string into a dictionary for event payloads.
+/// Returns `nil` when the string is absent or not valid JSON object.
+func parseLiveActivityProps(_ props: String?) -> [String: Any]? {
+  guard let data = props?.data(using: .utf8) else { return nil }
+  return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+}
+
 public final class WidgetsModule: Module {
   var pushToStartTokenObserverTask: Task<Void, Never>?
+  var activityUpdatesObserverTask: Task<Void, Never>?
+  var activityPushTokenObserverTasks: [String: Task<Void, Never>] = [:]
 
   public func definition() -> ModuleDefinition {
     Name("ExpoWidgets")
@@ -43,6 +52,21 @@ public final class WidgetsModule: Module {
     OnStopObserving(onPushToStartTokenReceived) {
       pushToStartTokenObserverTask?.cancel()
       pushToStartTokenObserverTask = nil
+    }
+
+    OnStartObserving(onTokenReceived) {
+      if pushNotificationsEnabled {
+        observeActivityPushTokens()
+      }
+    }
+
+    OnStopObserving(onTokenReceived) {
+      activityUpdatesObserverTask?.cancel()
+      activityUpdatesObserverTask = nil
+      for task in activityPushTokenObserverTasks.values {
+        task.cancel()
+      }
+      activityPushTokenObserverTasks.removeAll()
     }
 
     Constant("widgetsDirectory") { () -> String? in
@@ -139,6 +163,49 @@ public final class WidgetsModule: Module {
         if token != initialToken {
           sendPushToStartToken(activityPushToStartToken: token)
         }
+      }
+    }
+  }
+
+  private func sendActivityPushToken(for activity: Activity<LiveActivityAttributes>, token: String) {
+    var payload: [String: Any] = [
+      "activityId": activity.id,
+      "pushToken": token
+    ]
+    if let props = parseLiveActivityProps(activity.content.state.props) {
+      payload["props"] = props
+    }
+    sendEvent(onTokenReceived, payload)
+  }
+
+  @available(iOS 16.1, *)
+  private func observeActivityPushToken(for activity: Activity<LiveActivityAttributes>) {
+    let id = activity.id
+    guard activityPushTokenObserverTasks[id] == nil else { return }
+
+    activityPushTokenObserverTasks[id] = Task { [weak self] in
+      if let token = activity.pushToken?.reduce("", { $0 + String(format: "%02x", $1) }) {
+        self?.sendActivityPushToken(for: activity, token: token)
+      }
+      for await data in activity.pushTokenUpdates {
+        let token = data.reduce("") { $0 + String(format: "%02x", $1) }
+        self?.sendActivityPushToken(for: activity, token: token)
+      }
+      self?.activityPushTokenObserverTasks[id] = nil
+    }
+  }
+
+  // Observes per-activity push tokens for every live activity of this type, including
+  // activities started remotely via push-to-start (which have no JS handle). Apps can
+  // subscribe with `addLiveActivityPushTokenListener` instead of polling `getInstances`.
+  private func observeActivityPushTokens() {
+    guard #available(iOS 16.1, *), ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+    activityUpdatesObserverTask = Task { [weak self] in
+      for activity in Activity<LiveActivityAttributes>.activities {
+        self?.observeActivityPushToken(for: activity)
+      }
+      for await activity in Activity<LiveActivityAttributes>.activityUpdates {
+        self?.observeActivityPushToken(for: activity)
       }
     }
   }

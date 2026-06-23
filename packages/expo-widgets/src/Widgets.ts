@@ -242,6 +242,23 @@ export function addPushToStartTokenListener(
 }
 
 /**
+ * Adds a listener for push token events from any live activity, including activities
+ * started remotely via push-to-start (where there is no JS {@link LiveActivity} handle).
+ *
+ * Unlike {@link LiveActivity.addPushTokenListener}, this is a module-level listener: it
+ * observes every active live activity (and any started later) without requiring you to
+ * hold an instance or poll {@link LiveActivityFactory.getInstances}. The event includes
+ * the activity's `props` (content-state) so you can correlate the token with your own payload.
+ * @param listener Callback function to handle live activity push token events.
+ * @return An event subscription that can be used to remove the listener.
+ */
+export function addLiveActivityPushTokenListener(
+  listener: ExpoWidgetsEvents['onExpoWidgetsTokenReceived']
+): EventSubscription {
+  return ExpoWidgetsModule.addListener('onExpoWidgetsTokenReceived', listener);
+}
+
+/**
  * A directory that can be used to store shared images for widgets.
  * The contents of this directory are accessible by both the main app and widgets.
  */

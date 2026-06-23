@@ -8,6 +8,7 @@
 
 ### 🎉 New features
 
+- [iOS] Add `addLiveActivityPushTokenListener` and include the activity's content-state `props` in live activity push token events, so apps can receive per-activity tokens for activities started remotely via push-to-start without polling `getInstances`. ([#46557](https://github.com/expo/expo/issues/46557) by [@SomeoneWeird](https://github.com/SomeoneWeird))
 - [Android] Create a JS bundle for widgets. ([#46286](https://github.com/expo/expo/pull/46286) by [@jakex7](https://github.com/jakex7))
 - Expose shared directory for images. ([#46339](https://github.com/expo/expo/pull/46339) by [@jakex7](https://github.com/jakex7))
 - Add a initial layout registry for widgets. ([#46501](https://github.com/expo/expo/pull/46501) by [@jakex7](https://github.com/jakex7))
